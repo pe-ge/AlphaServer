@@ -10,7 +10,10 @@ import java.util.Set;
 public class Server extends Thread {
 
 	private DatagramSocket socket;
+	private boolean running;
 	private Set<Client> clients = new HashSet<Client>();
+	
+	private final byte DISCONNECT_SIGNAL = 127;
 	
 	public Server(int port) {
 		super("Alpha Server");
@@ -20,6 +23,7 @@ public class Server extends Thread {
 		} catch (SocketException e) {
 			e.printStackTrace();
 		}
+		running = true;
 	}
 	
 	private void send(final Client client, final byte[] data) {
@@ -32,7 +36,7 @@ public class Server extends Thread {
 	}
 
 	public void run() {
-		while (true) {
+		while (running) {
 			byte[] data = new byte[256];
 			
 			DatagramPacket packet = new DatagramPacket(data, data.length);
@@ -41,23 +45,38 @@ public class Server extends Thread {
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-			sendToAll(packet);
+			processPacket(packet);
 		}
+		
 	}
 			
-	private void sendToAll(final DatagramPacket packet) {
-		Thread sender = new Thread("Sender") {
+	private void processPacket(final DatagramPacket packet) {
+		Thread processor = new Thread("Processor") {
 			public void run() {
 				Client sender = new Client(packet.getAddress(), packet.getPort());
 				clients.add(sender);
-				for (Client client : clients) {
-					if (!client.equals(sender)) {
-						send(client, packet.getData());
+				
+				if (packet.getData()[0] == DISCONNECT_SIGNAL) {
+					disconnectClient(sender);
+				} else {
+					for (Client client : clients) {
+						if (!client.equals(sender)) {
+							send(client, packet.getData());
+						}
 					}
 				}
 			}
 		};
-		sender.start();
+		processor.start();
+	}
+	
+	private void disconnectClient(Client clientToDisconnect) {
+		clients.remove(clientToDisconnect);
+	}
+	
+	public void closeServer() {
+		running = false;
+		socket.close();
 	}
 	
 	public static void main(String[] args) {
@@ -67,7 +86,13 @@ public class Server extends Thread {
 		}
 		
 		int port = Integer.parseInt(args[0]);
-		Server server = new Server(port);
+		final Server server = new Server(port);
 		server.start();
+		
+		Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+		    public void run() {
+		    	server.closeServer();
+		    }
+		}));
 	}
 }
