@@ -58,13 +58,12 @@ public class Server extends Thread {
 				
 				if (packet.getData()[0] == DISCONNECT_SIGNAL) {
 					disconnectClient(sender);
-				} else {
-					for (Client client : clients) {
-						if (!client.equals(sender)) {
-							send(client, packet.getData());
-						}
-					}
 				}
+				for (Client client : clients) {
+					if (!client.equals(sender)) {
+						send(client, packet.getData());
+					}
+				}	
 			}
 		};
 		processor.start();
