@@ -13,8 +13,6 @@ public class Server extends Thread {
 	private boolean running;
 	private Set<Client> clients = new HashSet<Client>();
 	
-	private final byte DISCONNECT_SIGNAL = 127;
-	
 	public Server(int port) {
 		super("Alpha Server");
 		
@@ -55,18 +53,25 @@ public class Server extends Thread {
 			public void run() {
 				Client sender = new Client(packet.getAddress(), packet.getPort());
 				clients.add(sender);
-				
-				if (packet.getData()[0] == DISCONNECT_SIGNAL) {
+
+				if (disconnect(packet.getData())) { //first 4 bytes are 0
 					disconnectClient(sender);
 				}
 				for (Client client : clients) {
 					if (!client.equals(sender)) {
 						send(client, packet.getData());
 					}
-				}	
+				}
+				System.out.println("Number of clients: " + clients.size());
 			}
 		};
 		processor.start();
+	}
+	
+	private boolean disconnect(byte[] data) {
+		boolean disconnect = true;
+		for (int i = 0; i < 4; i++) disconnect &= data[i] == 0;
+		return disconnect;
 	}
 	
 	private void disconnectClient(Client clientToDisconnect) {
