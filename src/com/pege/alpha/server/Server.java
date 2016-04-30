@@ -52,9 +52,12 @@ public class Server extends Thread {
 		Thread processor = new Thread("Processor") {
 			public void run() {
 				Client sender = new Client(packet.getAddress(), packet.getPort());
-				clients.add(sender);
+				
+				if (!clients.contains(sender)) {
+					clients.add(sender);
+				}
 
-				if (disconnect(packet.getData())) { //first 4 bytes are 0
+				if (disconnect(packet.getData())) {
 					disconnectClient(sender);
 				}
 				for (Client client : clients) {
@@ -62,7 +65,6 @@ public class Server extends Thread {
 						send(client, packet.getData());
 					}
 				}
-				System.out.println("Number of clients: " + clients.size());
 			}
 		};
 		processor.start();
@@ -70,19 +72,14 @@ public class Server extends Thread {
 	
 	private boolean disconnect(byte[] data) {
 		boolean disconnect = true;
-		for (int i = 0; i < 4; i++) disconnect &= data[i] == 0;
+		for (int i = 0; i < 4; i++) disconnect &= data[i] == 0; //first 4 bytes are 0 when disconnecting
 		return disconnect;
 	}
 	
-	private void disconnectClient(Client clientToDisconnect) {
-		clients.remove(clientToDisconnect);
+	private void disconnectClient(Client client) {
+		clients.remove(client);
 	}
-	
-	public void closeServer() {
-		running = false;
-		socket.close();
-	}
-	
+
 	public static void main(String[] args) {
 		if (args.length != 1) {
 			System.err.println("Usage: java Server [port]");
@@ -92,11 +89,5 @@ public class Server extends Thread {
 		int port = Integer.parseInt(args[0]);
 		final Server server = new Server(port);
 		server.start();
-		
-		Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
-		    public void run() {
-		    	server.closeServer();
-		    }
-		}));
 	}
 }
